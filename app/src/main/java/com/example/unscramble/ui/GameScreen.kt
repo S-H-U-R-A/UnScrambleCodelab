@@ -1,18 +1,3 @@
-/*
- * Copyright (C) 2023 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.example.unscramble.ui
 
 import android.app.Activity
@@ -39,6 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,7 +41,12 @@ import com.example.unscramble.R
 import com.example.unscramble.ui.theme.UnscrambleTheme
 
 @Composable
-fun GameScreen() {
+fun GameScreen(
+    gameViewModel: GameViewModel = GameViewModel()//Este proceso debe cambiar, ya que no se debe crear una nueva instancia del viewmodel cada vez que se crea la pantalla
+) {
+
+    val gameUiState by gameViewModel.uiState.collectAsState()//Esto sería como usar remember, con mutableStateOf, además se esta colectando el StateFlow que contiene el estado de la UI.
+
     val mediumPadding = dimensionResource(R.dimen.padding_medium)
 
     Column(
@@ -71,11 +63,18 @@ fun GameScreen() {
         )
 
         GameLayout(
+            currentScrambledWord = gameUiState.currentScrambledWord,
+            userGuess = gameViewModel.userGuess,
+            onUserGuessChanged = { wordSelected ->
+                gameViewModel.updateUserGuess(wordSelected)
+            },
+            onKeyboardDone = { },
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .padding(mediumPadding)
+                .padding(mediumPadding),
         )
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -105,7 +104,11 @@ fun GameScreen() {
             }
         }
 
-        GameStatus(score = 0, modifier = Modifier.padding(20.dp))
+        GameStatus(
+            score = 0,
+            modifier = Modifier.padding(20.dp)
+        )
+
     }
 }
 
@@ -123,7 +126,14 @@ fun GameStatus(score: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun GameLayout(modifier: Modifier = Modifier) {
+fun GameLayout(
+    currentScrambledWord: String,
+    userGuess: String,
+    onUserGuessChanged: (String) -> Unit,
+    onKeyboardDone: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+
     val mediumPadding = dimensionResource(R.dimen.padding_medium)
 
     Card(
@@ -146,7 +156,7 @@ fun GameLayout(modifier: Modifier = Modifier) {
                 color = colorScheme.onPrimary
             )
             Text(
-                text = "scrambleun",
+                text = currentScrambledWord,
                 style = typography.displayMedium
             )
             Text(
@@ -155,7 +165,7 @@ fun GameLayout(modifier: Modifier = Modifier) {
                 style = typography.titleMedium
             )
             OutlinedTextField(
-                value = "",
+                value = userGuess,
                 singleLine = true,
                 shape = shapes.large,
                 modifier = Modifier.fillMaxWidth(),
@@ -164,14 +174,14 @@ fun GameLayout(modifier: Modifier = Modifier) {
                     unfocusedContainerColor = colorScheme.surface,
                     disabledContainerColor = colorScheme.surface,
                 ),
-                onValueChange = { },
-                label = { Text(stringResource(R.string.enter_your_word)) },
+                onValueChange = onUserGuessChanged,
+                label = { Text( text = stringResource(R.string.enter_your_word) ) },
                 isError = false,
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
-                    onDone = { }
+                    onDone = { onKeyboardDone() }
                 )
             )
         }
@@ -187,6 +197,7 @@ private fun FinalScoreDialog(
     onPlayAgain: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
     val activity = (LocalContext.current as Activity)
 
     AlertDialog(
@@ -214,6 +225,7 @@ private fun FinalScoreDialog(
         }
     )
 }
+
 
 @Preview(showBackground = true)
 @Composable
