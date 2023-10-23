@@ -4,10 +4,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.example.unscramble.data.MAX_NO_OF_WORDS
+import com.example.unscramble.data.SCORE_INCREASE
 import com.example.unscramble.data.allWords
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 class GameViewModel: ViewModel(){
 
@@ -20,18 +23,18 @@ class GameViewModel: ViewModel(){
     /**
      * Estado inicial de la palabra que adivina el usuario
      */
-    var userGuess by mutableStateOf("")
+    var userGuess: String by mutableStateOf("")
         private set
-
-    /**
-     * Current word palabra actual mostrada en el juego
-     */
-    private lateinit var currentWord: String
 
     /**
      * Used words conjunto de palabras que ya fueron usadas en el juego
      */
     private var usedWords: MutableSet<String> = mutableSetOf()
+
+    /**
+     * Current word palabra actual mostrada en el juego
+     */
+    private lateinit var currentWord: String
 
     init {
         resetGame()
@@ -57,21 +60,60 @@ class GameViewModel: ViewModel(){
         userGuess = guessedWord
     }
 
+    fun checkUserGuess(){
+        if ( userGuess.equals(currentWord, ignoreCase = true) ){
+            val updateScore = _uiState.value.score.plus(SCORE_INCREASE)//Incrementamos el valor del score
+            updateGameState(updateScore)//Solicitamos que se actualice el estado de la Ui.
+        }else{
+            _uiState.update { currentStateUi ->
+                currentStateUi.copy(
+                    isGuessedWordWrong = true
+                )
+            }
+        }
+        updateUserGuess("")//Se restablece el valor de la caja de texto del usuario
+    }
+
+    private fun updateGameState(updatedScore: Int) {
+        if(usedWords.size == MAX_NO_OF_WORDS){
+            _uiState.update { currentState ->
+                currentState.copy(
+                    isGuessedWordWrong = false,
+                    score = updatedScore,
+                    isGameOver = true
+                )
+            }
+        }else{
+            _uiState.update { currentStateUi ->
+                currentStateUi.copy(
+                    isGuessedWordWrong = false,
+                    currentWordCount = currentStateUi.currentWordCount.inc(),
+                    score = updatedScore,
+                    currentScrambledWord = pickRandomWordAndShuffle(),
+                )
+            }
+        }
+
+    }
+
+    fun skipWord(){
+        updateGameState(_uiState.value.score)
+        updateUserGuess("")
+    }
+
     /**
      * Pick random word and shuffle
      *
      * @return devuelve una palabra aleatoria de la lista de palabras, verificando que no se haya usado antes
      */
     private fun pickRandomWordAndShuffle(): String {
-
         currentWord = allWords.random()//obtenemos una palabra aleatoria de la lista de palabras
 
-        return if ( usedWords.contains(currentWord) ) {//Si el conjunto de palabras usadas contiene la palabra aleatoria, se vuelve a llamar la funcion
+        return if (usedWords.contains(currentWord)) {//Si el conjunto de palabras usadas contiene la palabra aleatoria, se vuelve a llamar la funcion
              pickRandomWordAndShuffle()
         } else {
             // De lo contrario, se agrega la palabra al conjunto de palabras usadas y se desordena
             usedWords.add(currentWord)
-
             shuffleCurrentWord(currentWord)//Se retorna la palabra desordenada
         }
     }

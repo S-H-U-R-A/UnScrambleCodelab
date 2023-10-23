@@ -37,12 +37,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.unscramble.R
 import com.example.unscramble.ui.theme.UnscrambleTheme
 
 @Composable
 fun GameScreen(
-    gameViewModel: GameViewModel = GameViewModel()//Este proceso debe cambiar, ya que no se debe crear una nueva instancia del viewmodel cada vez que se crea la pantalla
+    //Este proceso debe cambiar, ya que no se debe crear una nueva instancia del viewmodel cada vez que se crea la pantalla
+    gameViewModel: GameViewModel = viewModel<GameViewModel>()
 ) {
 
     val gameUiState by gameViewModel.uiState.collectAsState()//Esto sería como usar remember, con mutableStateOf, además se esta colectando el StateFlow que contiene el estado de la UI.
@@ -63,12 +65,12 @@ fun GameScreen(
         )
 
         GameLayout(
-            currentScrambledWord = gameUiState.currentScrambledWord,
+            onUserGuessChanged = { wordSelected -> gameViewModel.updateUserGuess(wordSelected) },
             userGuess = gameViewModel.userGuess,
-            onUserGuessChanged = { wordSelected ->
-                gameViewModel.updateUserGuess(wordSelected)
-            },
-            onKeyboardDone = { },
+            wordCount = gameUiState.currentWordCount,
+            currentScrambledWord = gameUiState.currentScrambledWord,
+            onKeyboardDone = { gameViewModel.checkUserGuess() },
+            isGuessWrong = gameUiState.isGuessedWordWrong,
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
@@ -85,7 +87,7 @@ fun GameScreen(
 
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { }
+                onClick = { gameViewModel.checkUserGuess() }
             ) {
                 Text(
                     text = stringResource(R.string.submit),
@@ -94,7 +96,7 @@ fun GameScreen(
             }
 
             OutlinedButton(
-                onClick = { },
+                onClick = { gameViewModel.skipWord() },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -105,9 +107,18 @@ fun GameScreen(
         }
 
         GameStatus(
-            score = 0,
+            score = gameUiState.score,
             modifier = Modifier.padding(20.dp)
         )
+
+        if(gameUiState.isGameOver){
+            FinalScoreDialog(
+                score = gameUiState.score,
+                onPlayAgain = {
+                    gameViewModel.resetGame()
+                }
+            )
+        }
 
     }
 }
@@ -131,6 +142,8 @@ fun GameLayout(
     userGuess: String,
     onUserGuessChanged: (String) -> Unit,
     onKeyboardDone: () -> Unit,
+    wordCount: Int,
+    isGuessWrong: Boolean,
     modifier: Modifier = Modifier
 ) {
 
@@ -151,7 +164,7 @@ fun GameLayout(
                     .background(colorScheme.surfaceTint)
                     .padding(horizontal = 10.dp, vertical = 4.dp)
                     .align(alignment = Alignment.End),
-                text = stringResource(R.string.word_count, 0),
+                text = stringResource(R.string.word_count, wordCount),
                 style = typography.titleMedium,
                 color = colorScheme.onPrimary
             )
@@ -175,13 +188,21 @@ fun GameLayout(
                     disabledContainerColor = colorScheme.surface,
                 ),
                 onValueChange = onUserGuessChanged,
-                label = { Text( text = stringResource(R.string.enter_your_word) ) },
-                isError = false,
+                label = {
+                    if(isGuessWrong){
+                        Text( text = stringResource(R.string.wrong_guess) )
+                    }else{
+                        Text( text = stringResource(R.string.enter_your_word) )
+                    }
+                },
+                isError = isGuessWrong,
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
-                    onDone = { onKeyboardDone() }
+                    onDone = {
+                        onKeyboardDone()
+                    }
                 )
             )
         }
@@ -206,8 +227,12 @@ private fun FinalScoreDialog(
             // button. If you want to disable that functionality, simply use an empty
             // onCloseRequest.
         },
-        title = { Text(text = stringResource(R.string.congratulations)) },
-        text = { Text(text = stringResource(R.string.you_scored, score)) },
+        title = {
+            Text(text = stringResource(R.string.congratulations))
+                },
+        text = {
+            Text(text = stringResource(R.string.you_scored, score))
+               },
         modifier = modifier,
         dismissButton = {
             TextButton(
@@ -219,7 +244,9 @@ private fun FinalScoreDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onPlayAgain) {
+            TextButton(
+                onClick = onPlayAgain
+            ) {
                 Text(text = stringResource(R.string.play_again))
             }
         }
