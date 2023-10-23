@@ -107,6 +107,7 @@ class GameViewModel: ViewModel(){
      * @return devuelve una palabra aleatoria de la lista de palabras, verificando que no se haya usado antes
      */
     private fun pickRandomWordAndShuffle(): String {
+
         currentWord = allWords.random()//obtenemos una palabra aleatoria de la lista de palabras
 
         return if (usedWords.contains(currentWord)) {//Si el conjunto de palabras usadas contiene la palabra aleatoria, se vuelve a llamar la funcion
@@ -136,7 +137,5 @@ class GameViewModel: ViewModel(){
 
         return String(tempWord)//retornamos la palabra desordenada
     }
-
-
 
 }
